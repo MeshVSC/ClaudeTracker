@@ -11,7 +11,7 @@
 [![Swift](https://img.shields.io/badge/Swift-5.9-F05138?style=flat-square&logo=swift&logoColor=white)](https://swift.org)
 [![SwiftUI](https://img.shields.io/badge/SwiftUI-Native-007AFF?style=flat-square&logo=swift&logoColor=white)](https://developer.apple.com/xcode/swiftui/)
 [![License](https://img.shields.io/badge/License-MIT-22C55E?style=flat-square)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-FF6154?style=flat-square)](https://github.com/MeshVSC/claude-usage-tracker/pulls)
+[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-FF6154?style=flat-square)](https://github.com/MeshVSC/ClaudeTracker/pulls)
 
 <br />
 
@@ -103,17 +103,7 @@ See your usage percentage without opening the popover. Choose which metrics to d
 
 ### Download
 
-> **Coming soon** — Releases will be available on the [Releases](https://github.com/MeshVSC/claude-usage-tracker/releases) page.
-
-### Build from Source
-
-```bash
-git clone https://github.com/MeshVSC/claude-usage-tracker.git
-cd claude-usage-tracker/ClaudeUsageTracker-Xcode
-open ClaudeUsageTracker.xcodeproj
-```
-
-Build and run with **Cmd + R** in Xcode 15+.
+**[Download on Gumroad](https://meshstudios.gumroad.com/l/ClaudeTracker)** | **[Website](https://claudetracker.meshstudios.eu)**
 
 ---
 
