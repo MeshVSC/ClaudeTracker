@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Real-time Claude AI usage monitoring with Activity Rings, burn rate projections, and smart alerts. Native macOS menu bar app.">
+    <meta property="og:title" content="Claude Usage Tracker">
+    <meta property="og:description" content="Know exactly where your Claude usage stands. Native macOS menu bar app.">
+    <meta property="og:type" content="website">
+    <title>Claude Usage Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oooh+Baby&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050505;
+            --surface: #0c0c0c;
+            --surface-2: #111;
+            --border: #1a1a1a;
+            --border-hover: #2a2a2a;
+            --text: #f0f0f0;
+            --text-dim: #666;
+            --text-muted: #444;
+            --lime: #92E82A;
+            --lime-dim: rgba(146, 232, 42, 0.15);
+            --lime-glow: rgba(146, 232, 42, 0.06);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        #liquid-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+        #liquid-bg canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        body > *:not(#liquid-bg) {
+            position: relative;
+            z-index: 1;
+        }
+
+
+        /* ---- Reveal animations ---- */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .reveal-delay-1 { transition-delay: 0.1s; }
+        .reveal-delay-2 { transition-delay: 0.2s; }
+        .reveal-delay-3 { transition-delay: 0.3s; }
+        .reveal-delay-4 { transition-delay: 0.4s; }
+        .reveal-delay-5 { transition-delay: 0.5s; }
+
+        /* ---- Marquee ---- */
+        .marquee-wrap {
+            overflow: hidden;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 1.2rem 0;
+            background: var(--surface);
+        }
+        .marquee-track {
+            display: flex;
+            width: max-content;
+            animation: marquee 30s linear infinite;
+        }
+        .marquee-track:hover {
+            animation-play-state: paused;
+        }
+        .marquee-item {
+            flex-shrink: 0;
+            padding: 0 3rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            white-space: nowrap;
+            transition: color 0.3s;
+        }
+        .marquee-item:hover {
+            color: var(--lime);
+        }
+        .marquee-sep {
+            flex-shrink: 0;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            align-self: center;
+        }
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* ---- Nav ---- */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(20px) saturate(1.8);
+            -webkit-backdrop-filter: blur(20px) saturate(1.8);
+            background: rgba(5, 5, 5, 0.7);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .nav-logo {
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text);
+        }
+        .nav-logo span {
+            color: var(--lime);
+        }
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+        .nav-links a {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-decoration: none;
+            letter-spacing: 0.03em;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover {
+            color: var(--text);
+        }
+        .nav-btn {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.5rem 1.2rem;
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            color: var(--lime);
+            background: transparent;
+            text-decoration: none;
+            transition: all 0.3s;
+            letter-spacing: 0.03em;
+        }
+        .nav-btn:hover {
+            background: var(--lime-dim);
+            border-color: rgba(146, 232, 42, 0.3);
+            box-shadow: 0 0 20px rgba(146, 232, 42, 0.1);
+        }
+
+        /* ---- Hero (two columns) ---- */
+        .hero {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            gap: 4rem;
+            padding: 8rem 10rem 6rem;
+            position: relative;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 60%;
+            height: 100%;
+            background: radial-gradient(ellipse at 70% 40%, var(--lime-glow) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.9rem;
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            margin-bottom: 2rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.02);
+        }
+        .badge-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--lime);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(146, 232, 42, 0.4); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(146, 232, 42, 0); }
+        }
+        h1 {
+            font-size: clamp(3.2rem, 5.5vw, 4.8rem);
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            line-height: 1.05;
+            margin-bottom: 1.5rem;
+        }
+        h1 .lime {
+            color: var(--lime);
+        }
+        .handwritten {
+            font-family: 'Oooh Baby', cursive;
+            color: var(--lime);
+            font-size: 1.6em;
+            line-height: 0.8;
+            display: inline-block;
+            vertical-align: baseline;
+        }
+        .hero-sub {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            max-width: 480px;
+            line-height: 1.7;
+            margin-bottom: 2.5rem;
+        }
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .btn-ghost {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.7rem 1.6rem;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+            border: 1px solid var(--border);
+            color: var(--text);
+            background: transparent;
+            letter-spacing: 0.02em;
+        }
+        .btn-ghost:hover {
+            border-color: var(--border-hover);
+            background: rgba(255,255,255,0.03);
+            transform: translateY(-1px);
+        }
+        .btn-lime {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.7rem 1.6rem;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+            border: 1px solid rgba(146, 232, 42, 0.3);
+            color: var(--lime);
+            background: var(--lime-dim);
+            letter-spacing: 0.02em;
+        }
+        .btn-lime:hover {
+            background: rgba(146, 232, 42, 0.22);
+            border-color: rgba(146, 232, 42, 0.5);
+            box-shadow: 0 0 30px rgba(146, 232, 42, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .hero-visual {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+        .hero-visual .glow {
+            position: absolute;
+            width: 420px;
+            height: 420px;
+            background: radial-gradient(circle, rgba(146, 232, 42, 0.08) 0%, transparent 65%);
+            pointer-events: none;
+            animation: glow-breathe 4s ease-in-out infinite;
+        }
+        @keyframes glow-breathe {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.05); }
+        }
+        .hero-visual img:not(.card-img) {
+            width: 360px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: 0 60px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .hero-visual:hover img:not(.card-img):not(.screenshot-card) {
+            transform: translateY(-4px) scale(1.01);
+        }
+        .hero-placeholder {
+            width: 360px;
+            height: 640px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+        }
+        .screenshot-stack {
+            position: relative;
+            width: 360px;
+            height: 640px;
+            perspective: 400px;
+            margin-top: -160px;
+        }
+        .screenshot-card {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            border-radius: 24px;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+            overflow: hidden;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), z-index 0s;
+        }
+        .screenshot-card:nth-child(1) {
+            top: 0;
+            z-index: 1;
+            transform-origin: bottom right;
+            transform: rotate(6deg) rotateY(-16deg);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.8);
+        }
+        .screenshot-card:nth-child(1):hover {
+            z-index: 10;
+            transform: rotate(0deg) rotateY(0deg) translate(180px, -50px);
+        }
+        .screenshot-card:nth-child(2) {
+            top: 33%;
+            z-index: 2;
+            transform-origin: bottom right;
+            transform: rotate(-6deg) rotateY(-16deg);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.8);
+        }
+        .screenshot-card:nth-child(2):hover {
+            z-index: 10;
+            transform: rotate(0deg) rotateY(0deg) translate(-180px, -50px);
+        }
+        .screenshot-card:nth-child(3) {
+            top: 66%;
+            z-index: 3;
+            transform-origin: bottom right;
+            transform: rotate(6deg) rotateY(-16deg) scale(0.96);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.8);
+        }
+        .screenshot-card:nth-child(3):hover {
+            z-index: 10;
+            transform: rotate(0deg) rotateY(0deg) scale(1.16) translateY(-16px);
+        }
+
+        /* ---- Features (2-col with offset) ---- */
+        .features {
+            padding: 8rem 6rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .features-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            margin-bottom: 5rem;
+            align-items: end;
+        }
+        .features-header .section-tag {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--lime);
+            margin-bottom: 1rem;
+        }
+        .features-header h2 {
+            font-size: clamp(2rem, 3.5vw, 3rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+        }
+        .features-header p {
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            line-height: 1.7;
+            max-width: 400px;
+            align-self: end;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: repeat(6, 1fr);
+            gap: 1.2rem;
+        }
+        .feature-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--lime-dim), transparent);
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+        .feature-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-3px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+        .feature-num {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            margin-bottom: 1.2rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .feature-card h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 0.6rem;
+            letter-spacing: -0.01em;
+        }
+        .feature-card p {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+        .feature-card:nth-child(1) {
+            grid-column: 1;
+            grid-row: 1 / 5;
+        }
+        .feature-card:nth-child(2) {
+            grid-column: 1;
+            grid-row: 5 / 7;
+        }
+        .feature-card:nth-child(3) {
+            grid-column: 2;
+            grid-row: 1 / 4;
+        }
+        .feature-card:nth-child(4) {
+            grid-column: 2;
+            grid-row: 4 / 7;
+        }
+        .feature-card:nth-child(5) {
+            grid-column: 3;
+            grid-row: 1 / 3;
+        }
+        .feature-card:nth-child(6) {
+            grid-column: 3;
+            grid-row: 3 / 7;
+        }
+
+        /* ---- Bento Section ---- */
+        .bento {
+            padding: 4rem 6rem 8rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: auto auto;
+            gap: 1.2rem;
+        }
+        .bento-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2.5rem 2rem;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .bento-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+        .bento-card.wide {
+            grid-column: span 2;
+        }
+        .bento-card .num {
+            font-size: clamp(2.5rem, 4vw, 3.5rem);
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            color: var(--lime);
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+        .bento-card .label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            letter-spacing: 0.03em;
+        }
+        .bento-card .desc {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+            margin-top: 0.5rem;
+        }
+
+        /* ---- Setup (two columns) ---- */
+        .setup {
+            padding: 8rem 6rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6rem;
+            align-items: center;
+        }
+        .setup-left .section-tag {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--lime);
+            margin-bottom: 1rem;
+        }
+        .setup-left h2 {
+            font-size: clamp(2rem, 3.5vw, 3rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+        }
+        .setup-left > p {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            line-height: 1.7;
+            margin-bottom: 2.5rem;
+        }
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        .step {
+            display: flex;
+            gap: 1.2rem;
+            align-items: flex-start;
+            padding: 1.2rem 0;
+            border-bottom: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+        .step:first-child {
+            border-top: 1px solid var(--border);
+        }
+        .step:hover {
+            padding-left: 0.5rem;
+        }
+        .step-num {
+            flex-shrink: 0;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--lime);
+            font-variant-numeric: tabular-nums;
+            padding-top: 0.15rem;
+            letter-spacing: 0.05em;
+        }
+        .step h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+            letter-spacing: -0.01em;
+        }
+        .step p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+        .setup-right {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .setup-visual {
+            width: 100%;
+            max-width: 380px;
+            aspect-ratio: 380/680;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+            transition: all 0.4s;
+        }
+        .setup-visual:hover {
+            border-color: var(--border-hover);
+        }
+        .settings-stack {
+            position: relative;
+            width: 100%;
+            max-width: 380px;
+            aspect-ratio: 380/680;
+            perspective: 400px;
+        }
+        .settings-card {
+            position: absolute;
+            width: 100%;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.8);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .settings-card:nth-child(1) {
+            top: 0;
+            z-index: 1;
+            transform-origin: bottom right;
+            transform: rotate(6deg) rotateY(-16deg);
+        }
+        .settings-card:nth-child(1):hover {
+            transform: rotate(0deg) rotateY(0deg) translate(96px, -40px);
+        }
+        .settings-card:nth-child(2) {
+            top: 50%;
+            z-index: 2;
+            transform-origin: bottom right;
+            transform: rotate(-6deg) rotateY(-16deg);
+        }
+        .settings-card:nth-child(2):hover {
+            transform: rotate(0deg) rotateY(0deg) scale(1.16) translateY(-16px);
+        }
+        .card-img {
+            width: 100%;
+            display: block;
+        }
+        .screenshot-card .card-img {
+            transform: scale(1.06);
+        }
+        .settings-card .card-img {
+            transform: scale(1.10);
+        }
+
+        /* ---- Tech (marquee style) ---- */
+        .tech {
+            padding: 6rem 6rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .tech-inner {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+        .tech-left .section-tag {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--lime);
+            margin-bottom: 1rem;
+        }
+        .tech-left h2 {
+            font-size: clamp(1.8rem, 3vw, 2.5rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+        }
+        .tech-left p {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            line-height: 1.7;
+        }
+        .tech-right {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+        .tech-pill {
+            padding: 0.6rem 1.4rem;
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-dim);
+            background: var(--surface);
+            transition: all 0.3s;
+            cursor: default;
+        }
+        .tech-pill:hover {
+            border-color: rgba(146, 232, 42, 0.3);
+            color: var(--lime);
+            background: var(--lime-dim);
+            box-shadow: 0 0 20px rgba(146, 232, 42, 0.06);
+        }
+
+        /* ---- Footer ---- */
+        footer {
+            padding: 4rem 6rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(5, 5, 5, 0.35);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .footer-left p {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+        }
+        .footer-left a {
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .footer-left a:hover {
+            color: var(--lime);
+        }
+        .footer-right {
+            display: flex;
+            gap: 2rem;
+        }
+        .footer-right a {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: color 0.2s;
+            letter-spacing: 0.02em;
+        }
+        .footer-right a:hover {
+            color: var(--text);
+        }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 1100px) and (min-width: 901px) {
+            .feature-grid { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+            .feature-card:nth-child(n) { grid-column: auto; grid-row: auto; }
+        }
+        @media (max-width: 900px) {
+            .hero { grid-template-columns: 1fr; padding: 7rem 2rem 4rem; text-align: center; }
+            .hero-sub { margin-left: auto; margin-right: auto; }
+            .hero-actions { justify-content: center; }
+            .hero-visual { margin-top: 3rem; }
+            .features { padding: 4rem 2rem; }
+            .features-header { grid-template-columns: 1fr; gap: 1rem; }
+            .feature-grid { grid-template-columns: 1fr; grid-template-rows: auto; }
+            .feature-card:nth-child(n) { grid-column: auto; grid-row: auto; }
+            .bento { padding: 2rem; }
+            .bento-grid { grid-template-columns: 1fr; }
+            .bento-card.wide { grid-column: span 1; }
+            .setup { grid-template-columns: 1fr; padding: 4rem 2rem; gap: 3rem; }
+            .tech { padding: 4rem 2rem; }
+            .tech-inner { grid-template-columns: 1fr; gap: 2rem; }
+            nav { padding: 0.8rem 1.5rem; }
+            .nav-links { gap: 1rem; }
+            footer { flex-direction: column; gap: 1.5rem; text-align: center; padding: 3rem 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="liquid-bg"></div>
+
+    <!-- Nav -->
+    <nav>
+        <div class="nav-logo"><span>Claude</span> Usage</div>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#setup">Setup</a>
+            <a href="#tech">Stack</a>
+            <a href="https://github.com/MeshVSC/claude-usage-tracker" class="nav-btn">GitHub</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="badge reveal">
+                <div class="badge-dot"></div>
+                macOS Native App
+            </div>
+
+            <h1 class="reveal reveal-delay-1">
+                Know exactly where your<br><span class="handwritten">Claude usage</span>&nbsp;stands.
+            </h1>
+
+            <p class="hero-sub reveal reveal-delay-2">
+                Real-time monitoring with Activity Rings, burn rate projections, and smart alerts. All from your macOS menu bar.
+            </p>
+
+            <div class="hero-actions reveal reveal-delay-3">
+                <a href="https://meshstudios.gumroad.com/l/ClaudeTracker" class="btn-lime">Download for macOS</a>
+                <a href="https://github.com/MeshVSC/claude-usage-tracker" class="btn-ghost">View Source</a>
+            </div>
+        </div>
+
+        <div class="hero-visual reveal reveal-delay-2">
+            <div class="glow"></div>
+            <div class="screenshot-stack">
+                <div class="screenshot-card">
+                    <img src="screenshot-3.png" alt="Dashboard heatmap view" class="card-img">
+                </div>
+                <div class="screenshot-card">
+                    <img src="screenshot-2.png" alt="Dashboard pace and burn rate" class="card-img">
+                </div>
+                <div class="screenshot-card">
+                    <img src="screenshot-1.png" alt="Dashboard rings view" class="card-img">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Marquee 1 -->
+    <div class="marquee-wrap">
+        <div class="marquee-track">
+            <span class="marquee-item">Activity Rings</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Burn Rate</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Pace Indicator</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Smart Alerts</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Usage Heatmap</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Menu Bar</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Sonnet + Opus</span><span class="marquee-sep"></span>
+            <span class="marquee-item">5-Hour Window</span><span class="marquee-sep"></span>
+            <span class="marquee-item">7-Day Window</span><span class="marquee-sep"></span>
+            <span class="marquee-item">SwiftUI Native</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Zero Telemetry</span><span class="marquee-sep"></span>
+            <!-- duplicate for seamless loop -->
+            <span class="marquee-item">Activity Rings</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Burn Rate</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Pace Indicator</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Smart Alerts</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Usage Heatmap</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Menu Bar</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Sonnet + Opus</span><span class="marquee-sep"></span>
+            <span class="marquee-item">5-Hour Window</span><span class="marquee-sep"></span>
+            <span class="marquee-item">7-Day Window</span><span class="marquee-sep"></span>
+            <span class="marquee-item">SwiftUI Native</span><span class="marquee-sep"></span>
+            <span class="marquee-item">Zero Telemetry</span><span class="marquee-sep"></span>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <section class="features" id="features">
+        <div class="features-header">
+            <div>
+                <p class="section-tag reveal">Features</p>
+                <h2 class="reveal reveal-delay-1">Everything you need to stay in control.</h2>
+            </div>
+            <p class="reveal reveal-delay-2">Six core modules designed for one thing: making sure you never hit a rate limit by surprise.</p>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card reveal">
+                <div class="feature-num">01</div>
+                <h3>Activity Rings</h3>
+                <p>Apple Watch-inspired concentric rings for your 5-hour and 7-day usage windows. Separate rings for Sonnet and Opus model breakdown.</p>
+            </div>
+
+            <div class="feature-card reveal reveal-delay-1">
+                <div class="feature-num">02</div>
+                <h3>Pace Indicator</h3>
+                <p>Visual comparison of where you are vs. where you should be. Expected vs. actual usage with clear ahead/behind status at a glance.</p>
+            </div>
+
+            <div class="feature-card reveal reveal-delay-2">
+                <div class="feature-num">03</div>
+                <h3>Burn Rate</h3>
+                <p>5-hour window shown as filling squares. 7-day window as a stock-chart sparkline with expected pace reference line. Color-coded by severity.</p>
+            </div>
+
+            <div class="feature-card reveal reveal-delay-3">
+                <div class="feature-num">04</div>
+                <h3>Smart Alerts</h3>
+                <p>Native macOS notifications at 80% and 95% thresholds on both usage windows. Never hit a rate limit by surprise.</p>
+            </div>
+
+            <div class="feature-card reveal reveal-delay-4">
+                <div class="feature-num">05</div>
+                <h3>Activity Heatmap</h3>
+                <p>24-hour usage pattern grid that builds over time. See exactly when you use Claude most throughout the day.</p>
+            </div>
+
+            <div class="feature-card reveal reveal-delay-5">
+                <div class="feature-num">06</div>
+                <h3>Menu Bar</h3>
+                <p>Live usage percentage in your menu bar. Choose which metrics to display. Four icon themes. Configurable refresh modes.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech -->
+    <section class="tech" id="tech">
+        <div class="tech-inner">
+            <div class="tech-left">
+                <p class="section-tag reveal">Built With</p>
+                <h2 class="reveal reveal-delay-1">Native. Fast. Private.</h2>
+                <p class="reveal reveal-delay-2">Pure SwiftUI. No Electron. No web views. Your session key stays in macOS UserDefaults and never leaves your machine.</p>
+            </div>
+            <div class="tech-right reveal reveal-delay-3">
+                <span class="tech-pill">SwiftUI</span>
+                <span class="tech-pill">Combine</span>
+                <span class="tech-pill">UserNotifications</span>
+                <span class="tech-pill">ServiceManagement</span>
+                <span class="tech-pill">URLSession</span>
+                <span class="tech-pill">macOS 13+</span>
+                <span class="tech-pill">Swift 5.9</span>
+                <span class="tech-pill">Xcode 15</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bento Stats -->
+    <section class="bento">
+        <div class="bento-grid">
+            <div class="bento-card reveal">
+                <div class="num">2</div>
+                <div class="label">Usage Windows</div>
+                <div class="desc">5-hour rolling and 7-day fixed, tracked simultaneously with independent alerts.</div>
+            </div>
+            <div class="bento-card wide reveal reveal-delay-1">
+                <div class="num">80% / 95%</div>
+                <div class="label">Alert Thresholds</div>
+                <div class="desc">Dual-stage native macOS notifications on both windows. Enough time to slow down or wrap up.</div>
+            </div>
+            <div class="bento-card wide reveal reveal-delay-2">
+                <div class="num">24h</div>
+                <div class="label">Heatmap Resolution</div>
+                <div class="desc">Hourly usage tracking that builds a pattern map over time. Know your peak Claude hours.</div>
+            </div>
+            <div class="bento-card reveal reveal-delay-3">
+                <div class="num">0</div>
+                <div class="label">Data Sent</div>
+                <div class="desc">Everything stays on your machine. No analytics, no telemetry, no third-party servers.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Setup -->
+    <section class="setup" id="setup">
+        <div class="setup-left">
+            <p class="section-tag reveal">Setup</p>
+            <h2 class="reveal reveal-delay-1">Up and running in two minutes.</h2>
+            <p class="reveal reveal-delay-2">Three steps. No account creation, no API keys to generate. Just your existing Claude session.</p>
+
+            <div class="steps reveal reveal-delay-3">
+                <div class="step">
+                    <div class="step-num">01</div>
+                    <div>
+                        <h3>Download and open</h3>
+                        <p>Grab the latest release or build from source with Xcode.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num">02</div>
+                    <div>
+                        <h3>Get your session key</h3>
+                        <p>Open claude.ai, grab the sessionKey from your browser's developer tools cookies.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num">03</div>
+                    <div>
+                        <h3>Paste and connect</h3>
+                        <p>Enter the key in Settings, hit Test, and you're live. Data refreshes automatically.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="setup-right reveal reveal-delay-2">
+            <div class="settings-stack">
+                <div class="settings-card">
+                    <img src="settings-1.png" alt="Settings appearance" class="card-img">
+                </div>
+                <div class="settings-card">
+                    <img src="settings-2.png" alt="Settings menu bar" class="card-img">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-left">
+            <p>Built by <a href="https://github.com/MeshVSC">Mesh Studios</a> &middot; Barcelona, Spain &middot; 2026</p>
+        </div>
+        <div class="footer-right">
+            <a href="https://github.com/MeshVSC/claude-usage-tracker">GitHub</a>
+            <a href="https://meshstudios.gumroad.com/l/ClaudeTracker">Download</a>
+            <a href="https://github.com/MeshVSC/claude-usage-tracker/blob/main/LICENSE">MIT License</a>
+        </div>
+    </footer>
+
+    <!-- Scroll reveal -->
+    <script>
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    </script>
+
+    <!-- Three.js Liquid Gradient Background -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    (() => {
+        // TouchTexture — tracks mouse movement for shader distortion
+        class TouchTexture {
+            constructor() {
+                this.size = 64; this.width = 64; this.height = 64;
+                this.maxAge = 64; this.radius = 0.1; this.speed = 1/64;
+                this.trail = []; this.last = null;
+                this.canvas = document.createElement("canvas");
+                this.canvas.width = this.width; this.canvas.height = this.height;
+                this.ctx = this.canvas.getContext("2d");
+                this.ctx.fillStyle = "black";
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                this.texture = new THREE.Texture(this.canvas);
+            }
+            update() {
+                this.ctx.fillStyle = "black";
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                for (let i = this.trail.length - 1; i >= 0; i--) {
+                    const p = this.trail[i];
+                    const f = p.force * this.speed * (1 - p.age / this.maxAge);
+                    p.x += p.vx * f; p.y += p.vy * f; p.age++;
+                    if (p.age > this.maxAge) this.trail.splice(i, 1);
+                    else this.drawPoint(p);
+                }
+                this.texture.needsUpdate = true;
+            }
+            addTouch(point) {
+                let force = 0, vx = 0, vy = 0;
+                if (this.last) {
+                    const dx = point.x - this.last.x, dy = point.y - this.last.y;
+                    if (dx === 0 && dy === 0) return;
+                    const d = Math.sqrt(dx*dx + dy*dy);
+                    vx = dx/d; vy = dy/d;
+                    force = Math.min((dx*dx + dy*dy) * 20000, 2.0);
+                }
+                this.last = { x: point.x, y: point.y };
+                this.trail.push({ x: point.x, y: point.y, age: 0, force, vx, vy });
+            }
+            drawPoint(p) {
+                const pos = { x: p.x * this.width, y: (1 - p.y) * this.height };
+                let intensity = p.age < this.maxAge * 0.3
+                    ? Math.sin((p.age / (this.maxAge * 0.3)) * (Math.PI / 2))
+                    : -((1 - (p.age - this.maxAge * 0.3) / (this.maxAge * 0.7)) * ((1 - (p.age - this.maxAge * 0.3) / (this.maxAge * 0.7)) - 2));
+                intensity *= p.force;
+                const color = "146, 232, 42";
+                const radius = this.radius * this.width;
+                this.ctx.shadowOffsetX = this.size * 5;
+                this.ctx.shadowOffsetY = this.size * 5;
+                this.ctx.shadowBlur = radius;
+                this.ctx.shadowColor = "rgba(" + color + "," + 0.2 * intensity + ")";
+                this.ctx.beginPath();
+                this.ctx.fillStyle = "rgba(146, 232, 42, 1)";
+                this.ctx.arc(pos.x - this.size * 5, pos.y - this.size * 5, radius, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+        }
+
+        const container = document.getElementById('liquid-bg');
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 10000);
+        camera.position.z = 50;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0e27);
+
+        const clock = new THREE.Clock();
+        const touchTexture = new TouchTexture();
+
+        // Lime green: (0.573, 0.910, 0.165)
+        // Dark bg:    (0.020, 0.020, 0.020)
+        const uniforms = {
+            uTime: { value: 0 },
+            uResolution: { value: new THREE.Vector2(container.clientWidth, container.clientHeight) },
+            uColor1: { value: new THREE.Vector3(0.573, 0.910, 0.165) },
+            uColor2: { value: new THREE.Vector3(0.0, 0.0, 0.0) },
+            uColor3: { value: new THREE.Vector3(0.573, 0.910, 0.165) },
+            uColor4: { value: new THREE.Vector3(0.0, 0.0, 0.0) },
+            uColor5: { value: new THREE.Vector3(0.573, 0.910, 0.165) },
+            uColor6: { value: new THREE.Vector3(0.0, 0.0, 0.0) },
+            uSpeed: { value: 0.4 }, uIntensity: { value: 1.3 },
+            uTouchTexture: { value: touchTexture.texture },
+            uGrainIntensity: { value: 0.03 },
+            uDarkNavy: { value: new THREE.Vector3(0.0, 0.0, 0.0) },
+            uGradientSize: { value: 0.35 }, uGradientCount: { value: 12.0 },
+            uColor1Weight: { value: 0.4 }, uColor2Weight: { value: 1.0 }
+        };
+
+        function getViewSize() {
+            const fov = (camera.fov * Math.PI) / 180;
+            const height = Math.abs(camera.position.z * Math.tan(fov / 2) * 2);
+            return { width: height * camera.aspect, height: height };
+        }
+
+        const viewSize = getViewSize();
+        const geometry = new THREE.PlaneGeometry(viewSize.width, viewSize.height, 1, 1);
+        const material = new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            vertexShader: "varying vec2 vUv; void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); vUv = uv; }",
+            fragmentShader: [
+                "uniform float uTime, uSpeed, uIntensity, uGrainIntensity, uGradientSize, uGradientCount, uColor1Weight, uColor2Weight;",
+                "uniform vec2 uResolution;",
+                "uniform vec3 uColor1, uColor2, uColor3, uColor4, uColor5, uColor6, uDarkNavy;",
+                "uniform sampler2D uTouchTexture;",
+                "varying vec2 vUv;",
+                "",
+                "float grain(vec2 uv, float t) { return fract(sin(dot(uv * uResolution * 0.5 + t, vec2(12.9898, 78.233))) * 43758.5453) * 2.0 - 1.0; }",
+                "",
+                "vec3 getGradientColor(vec2 uv, float time) {",
+                "  vec2 c1 = vec2(0.5 + sin(time * uSpeed * 0.4) * 0.4, 0.5 + cos(time * uSpeed * 0.5) * 0.4);",
+                "  vec2 c2 = vec2(0.5 + cos(time * uSpeed * 0.6) * 0.5, 0.5 + sin(time * uSpeed * 0.45) * 0.5);",
+                "  vec2 c3 = vec2(0.5 + sin(time * uSpeed * 0.35) * 0.45, 0.5 + cos(time * uSpeed * 0.55) * 0.45);",
+                "  vec2 c4 = vec2(0.5 + cos(time * uSpeed * 0.5) * 0.4, 0.5 + sin(time * uSpeed * 0.4) * 0.4);",
+                "  vec2 c5 = vec2(0.5 + sin(time * uSpeed * 0.7) * 0.35, 0.5 + cos(time * uSpeed * 0.6) * 0.35);",
+                "  vec2 c6 = vec2(0.5 + cos(time * uSpeed * 0.45) * 0.5, 0.5 + sin(time * uSpeed * 0.65) * 0.5);",
+                "  float i1 = 1.0 - smoothstep(0.0, uGradientSize, length(uv - c1));",
+                "  float i2 = 1.0 - smoothstep(0.0, uGradientSize, length(uv - c2));",
+                "  float i3 = 1.0 - smoothstep(0.0, uGradientSize, length(uv - c3));",
+                "  float i4 = 1.0 - smoothstep(0.0, uGradientSize, length(uv - c4));",
+                "  float i5 = 1.0 - smoothstep(0.0, uGradientSize, length(uv - c5));",
+                "  float i6 = 1.0 - smoothstep(0.0, uGradientSize, length(uv - c6));",
+                "  vec3 color = vec3(0.0);",
+                "  color += uColor1 * i1 * (0.55 + 0.45 * sin(time * uSpeed)) * uColor1Weight;",
+                "  color += uColor2 * i2 * (0.55 + 0.45 * cos(time * uSpeed * 1.2)) * uColor2Weight;",
+                "  color += uColor3 * i3 * (0.55 + 0.45 * sin(time * uSpeed * 0.8)) * uColor1Weight;",
+                "  color += uColor4 * i4 * (0.55 + 0.45 * cos(time * uSpeed * 1.3)) * uColor2Weight;",
+                "  color += uColor5 * i5 * (0.55 + 0.45 * sin(time * uSpeed * 1.1)) * uColor1Weight;",
+                "  color += uColor6 * i6 * (0.55 + 0.45 * cos(time * uSpeed * 0.9)) * uColor2Weight;",
+                "  color = clamp(color, vec3(0.0), vec3(1.0)) * uIntensity;",
+                "  float lum = dot(color, vec3(0.299, 0.587, 0.114));",
+                "  color = mix(vec3(lum), color, 1.35);",
+                "  color = pow(color, vec3(0.92));",
+                "  float brightness = length(color);",
+                "  color = mix(uDarkNavy, color, max(brightness * 1.2, 0.15));",
+                "  return color;",
+                "}",
+                "",
+                "void main() {",
+                "  vec2 uv = vUv;",
+                "  vec4 touchTex = texture2D(uTouchTexture, uv);",
+                "  uv.x -= (touchTex.r * 2.0 - 1.0) * 0.8 * touchTex.b;",
+                "  uv.y -= (touchTex.g * 2.0 - 1.0) * 0.8 * touchTex.b;",
+                "  vec2 center = vec2(0.5);",
+                "  float dist = length(uv - center);",
+                "  float ripple = sin(dist * 20.0 - uTime * 3.0) * 0.04 * touchTex.b;",
+                "  uv += vec2(ripple);",
+                "  vec3 color = getGradientColor(uv, uTime);",
+                "  color += grain(uv, uTime) * uGrainIntensity;",
+                "  color = clamp(color, vec3(0.0), vec3(1.0));",
+                "  gl_FragColor = vec4(color, 1.0);",
+                "}"
+            ].join("\n")
+        });
+
+        const mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+
+        // Mouse tracking
+        container.style.pointerEvents = 'auto';
+        document.addEventListener("mousemove", function(e) {
+            touchTexture.addTouch({ x: e.clientX / window.innerWidth, y: 1 - e.clientY / window.innerHeight });
+        });
+
+        // Resize
+        window.addEventListener("resize", function() {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            const vs = getViewSize();
+            mesh.geometry.dispose();
+            mesh.geometry = new THREE.PlaneGeometry(vs.width, vs.height, 1, 1);
+            uniforms.uResolution.value.set(container.clientWidth, container.clientHeight);
+        });
+
+        // Render loop
+        function tick() {
+            const delta = Math.min(clock.getDelta(), 0.1);
+            touchTexture.update();
+            uniforms.uTime.value += delta;
+            renderer.render(scene, camera);
+            requestAnimationFrame(tick);
+        }
+        tick();
+    })();
+    </script>
+
+</body>
+</html>
